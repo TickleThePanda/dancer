@@ -1,5 +1,28 @@
 import { GyroscopeAxisState } from "./gyroscope.js";
 
+window.addEventListener('load', e => {
+  if ('Gyroscope' in window) {
+    document.querySelector('.js-wrapper').innerHTML = "This does not work on your device. The gyroscope feature is not supported.";
+  } else {
+    try {
+      const testGyro = new Gyroscope();
+      testGyro.onerror = (event) => {
+        let reason = event.error;
+        if (event.error.name === 'NotAllowedError') {
+          reason = 'Permission to access sensor was denied.';
+        } else if (event.error.name === 'NotReadableError') {
+          reason = 'Cannot connect to the sensor (the sensor might not exist).';
+        }
+
+        document.querySelector('.js-wrapper').innerHTML = "This does not work on your device. " + reason;
+      }
+      testGyro.start();
+    } catch (err) {
+    }
+  }
+})
+
+
 function log(...args) {
   let output = "<p>" + args.join(" ");
   document.querySelector(".js-log").innerHTML = output + document.querySelector(".js-log").innerHTML;
