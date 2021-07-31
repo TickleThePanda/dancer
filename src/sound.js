@@ -1,7 +1,8 @@
+import { Gyroscope } from "./motion-sensors.js";
 import { GyroscopeAxisState } from "./gyroscope.js";
 
 window.addEventListener('load', e => {
-  if (!'Gyroscope' in window) {
+  if (typeof Gyroscope !== 'function') {
     document.querySelector('.js-wrapper').innerHTML = "This does not work on your device. The gyroscope feature is not supported.";
   } else {
     try {
@@ -17,6 +18,7 @@ window.addEventListener('load', e => {
         document.querySelector('.js-wrapper').innerHTML = "This does not work on your device. " + reason;
       }
       testGyro.start();
+      testGyro.onreading = _ => testGyro.stop();
     } catch (err) {
     }
   }
