@@ -1,7 +1,7 @@
 import { GyroscopeAxisState } from "./gyroscope.js";
 
 window.addEventListener('load', e => {
-  if ('Gyroscope' in window) {
+  if (!'Gyroscope' in window) {
     document.querySelector('.js-wrapper').innerHTML = "This does not work on your device. The gyroscope feature is not supported.";
   } else {
     try {
