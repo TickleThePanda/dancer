@@ -4,26 +4,8 @@ import { GyroscopeAxisState } from "./gyroscope.js";
 window.addEventListener('load', e => {
   if (typeof Gyroscope !== 'function') {
     document.querySelector('.js-wrapper').innerHTML = "This does not work on your device. The gyroscope feature is not supported.";
-  } else {
-    try {
-      const testGyro = new Gyroscope();
-      testGyro.onerror = (event) => {
-        let reason = event.error;
-        if (event.error.name === 'NotAllowedError') {
-          reason = 'Permission to access sensor was denied.';
-        } else if (event.error.name === 'NotReadableError') {
-          reason = 'Cannot connect to the sensor (the sensor might not exist).';
-        }
-
-        document.querySelector('.js-wrapper').innerHTML = "This does not work on your device. " + reason;
-      }
-      testGyro.start();
-      testGyro.onreading = _ => testGyro.stop();
-    } catch (err) {
-    }
   }
 })
-
 
 function log(...args) {
   let output = "<p>" + args.join(" ");
@@ -76,7 +58,23 @@ function makeDistortionCurve(amount) {
 const frequency = 60;
 const stepTime = 250;
 
-document.querySelector('.js-start').addEventListener('click', e => {
+document.querySelector('.js-start')
+  .addEventListener('click', async e => {
+
+  if (typeof DeviceMotionEvent.requestPermission === "function") {
+    const response = await DeviceMotionEvent.requestPermission();
+    if (response == "granted") {
+      start();
+    } else {
+      printError(response);
+    }
+  } else {
+    start();
+  }
+
+});
+
+function start() {
 
   try {
     const gyroscope = new Gyroscope({frequency: frequency});
@@ -189,6 +187,4 @@ document.querySelector('.js-start').addEventListener('click', e => {
   } catch (err) {
     printError(err);
   }
-
-
-});
+}
