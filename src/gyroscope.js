@@ -8,19 +8,19 @@ export class History {
 export class GyroscopeAxisState {
   constructor(axis) {
     this.axis = axis;
-    this.current = undefined;
-    this.cumulative = 0;
+    this.change = undefined;
+    this.current = 0;
     this.history = [];
   }
 
   add(time, value) {
-    this.current = value;
+    this.change = value;
     this.history.push(new History(time, value));
-    this.cumulative += value;
+    this.current += value;
   }
 
   decay(value) {
-    this.cumulative *= value;
+    this.current *= value;
   }
 
   averageChange(now, time) {
@@ -42,8 +42,8 @@ export class GyroscopeAxisState {
 
   printToHtml(element) {
     element.innerHTML = `
-      <div>${this.axis} current: ${this.current}</div>
-      <div>${this.axis}: ${this.cumulative}</div>
+      <div>${this.axis} current: ${this.change}</div>
+      <div>${this.axis}: ${this.current}</div>
     `;
   }
 

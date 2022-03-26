@@ -5,14 +5,11 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "concurrently \"python3 -m http.server --directory src 8081\" \"ngrok http 8081\""
+    "dev": "live-server src/ --host=0.0.0.0 --port=8083"
   },
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "concurrently": "^6.2.0",
-    "http-server": "^0.12.3",
-    "livereload": "^0.9.3",
-    "local-web-server": "^5.0.0"
+    "live-server": "^1.2.1"
   }
 }

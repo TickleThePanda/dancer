@@ -1,6 +1,8 @@
 import { Gyroscope } from "./motion-sensors.js";
 import { GyroscopeAxisState } from "./gyroscope.js";
-import {createViewer} from './viewer'
+import { createViewer } from './viewer.js'
+import { Context, PolySynth } from 'https://cdn.skypack.dev/tone';
+
 
 window.addEventListener('load', e => {
   if (typeof Gyroscope !== 'function') {
@@ -41,20 +43,6 @@ function getRatio(v) {
 function printError(err) {
   document.querySelector('.js-error').innerHTML = err.stack.replace(/\\n/, "<br>");
 }
-
-function makeDistortionCurve(amount) {
-  var k = typeof amount === 'number' ? amount : 50,
-    n_samples = 44100,
-    curve = new Float32Array(n_samples),
-    deg = Math.PI / 180,
-    i = 0,
-    x;
-  for ( ; i < n_samples; ++i ) {
-    x = i * 2 / n_samples - 1;
-    curve[i] = ( 3 + k ) * x * 20 * deg / ( Math.PI + k * Math.abs(x) );
-  }
-  return curve;
-};
 
 const frequency = 60;
 const stepTime = 250;
@@ -105,54 +93,58 @@ function start() {
     real[9] = 0.25;
     real[10] = 0;
 
-    const wave = context.createPeriodicWave(real, imag, {disableNormalization: true});
+    const toneContext = new Context(context);
+    const synth = new PolySynth({ context: toneContext, polyphony: 2 });
 
-    const distortion = context.createWaveShaper();
-    distortion.curve = makeDistortionCurve(400);
-    distortion.oversample = '4x';
-    
-    const viewer = createViewer(context)
-    distortion.connect(viewer)
+    const viewer = createViewer(context);
+    synth.chain(viewer);
     viewer.connect(context.destination)
-
-    const gainNodePrimary = context.createGain();
-    gainNodePrimary.connect(distortion);
-    gainNodePrimary.gain.setValueAtTime(0.5, context.currentTime);
-
-    const occilPrimary = context.createOscillator();
-    occilPrimary.setPeriodicWave(wave);
-    occilPrimary.connect(gainNodePrimary);
-    occilPrimary.start(0);
-
-    const gainNodeHarmony = context.createGain();
-    gainNodeHarmony.connect(context.destination);
-    gainNodeHarmony.gain.setValueAtTime(0.5, context.currentTime);
-
-    const occilHarmony = context.createOscillator();
-    occilHarmony.setPeriodicWave(wave);
-    occilHarmony.connect(gainNodeHarmony);
-    occilHarmony.start(0);
 
     let count = 0;
     let noteState = 'on';
     const checkInterval = 10;
-    let bpm = 120;
+
+    let stepNow = 0;
+    let lastPlayed = [];
+
+    function periodicClamp(value, {
+      max, minOut, maxOut
+    }) {
+      const mid = (maxOut + minOut) / 2;
+      const range = maxOut - minOut;
+
+      const v = value / max * 2 * Math.PI / 4;
+
+      return mid + Math.cos(v) * range / 2;
+
+    }
 
     setInterval(() => {
-      const restPercentage = 0.1;
+      const restPercentage = periodicClamp(state.z.current, {
+        max: 360 / 2,
+        minOut: 0.1,
+        maxOut: 0.9
+      });
+      const bpm = 120 + periodicClamp(state.x.current, { max: 360/8, minOut: -1, maxOut: 1 }) * 60;
+
       const onLength = ((60 / bpm) * 1000 * (1 - restPercentage)) / checkInterval;
       const offLength = ((60 / bpm) * 1000 * restPercentage) / checkInterval;
+      const freq = getRatio(periodicClamp(state.x.current, { max: 360/8, minOut: -10, maxOut: 10 })) * 440;
+      const harmonyFreq = getRatio(state.y.averageChange(stepNow, stepTime) / 2) * freq / 2;
+
+      const debug = { count, onLength, offLength, freq, harmonyFreq, bpm, restPercentage };
+
+      document.querySelector(".js-sound-debug").innerHTML = Object.entries(debug).map(([k, v]) => `${k}: ${v}`).join("<br>");
 
       if (count > onLength && noteState === 'on') {
         noteState = 'off';
         count = 0;
-        gainNodeHarmony.gain.setValueAtTime(0, context.currentTime);
-        gainNodePrimary.gain.setValueAtTime(0, context.currentTime);
+        synth.triggerRelease(lastPlayed);
       } else if (count > offLength && noteState === 'off') {
         noteState = 'on';
         count = 0;
-        gainNodeHarmony.gain.setValueAtTime(0.5, context.currentTime);
-        gainNodePrimary.gain.setValueAtTime(0.5, context.currentTime);
+        lastPlayed = [freq, harmonyFreq];
+        synth.triggerAttack(lastPlayed);
       };
 
       count++;
@@ -161,7 +153,7 @@ function start() {
     gyroscope.addEventListener('reading', e => {
       try {
         const now = new Date();
-        const stepNow = now - now % stepTime;
+        stepNow = now - now % stepTime;
 
         state.x.add(now, gyroscope.x);
         state.y.add(now, gyroscope.y);
@@ -171,16 +163,6 @@ function start() {
           axis.printToHtml(document.querySelector(`.js-${key}-axis`));
         }
 
-        bpm = 120 - state.z.cumulative / 180 * 60;
-        const primaryFreq = getRatio(state.x.cumulative / 6) * 440;
-        const harmonyFreq = getRatio(state.y.averageChange(stepNow, stepTime) / 2) * primaryFreq / 2;
-
-        document.querySelector(".js-sound-primary-freq").innerHTML = primaryFreq;
-        document.querySelector(".js-sound-harmony-freq").innerHTML = harmonyFreq;
-        document.querySelector(".js-sound-bpm").innerHTML = bpm;
-
-        occilPrimary.frequency.value = primaryFreq;
-        occilHarmony.frequency.value = harmonyFreq;
       } catch (err) {
         printError(err);
       }
@@ -189,6 +171,7 @@ function start() {
     gyroscope.start();
 
   } catch (err) {
+    console.error(err)
     printError(err);
   }
 }
