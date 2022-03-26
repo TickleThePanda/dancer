@@ -1,5 +1,6 @@
 import { Gyroscope } from "./motion-sensors.js";
 import { GyroscopeAxisState } from "./gyroscope.js";
+import {createViewer} from './viewer'
 
 window.addEventListener('load', e => {
   if (typeof Gyroscope !== 'function') {
@@ -109,7 +110,10 @@ function start() {
     const distortion = context.createWaveShaper();
     distortion.curve = makeDistortionCurve(400);
     distortion.oversample = '4x';
-    distortion.connect(context.destination)
+    
+    const viewer = createViewer(context)
+    distortion.connect(viewer)
+    viewer.connect(context.destination)
 
     const gainNodePrimary = context.createGain();
     gainNodePrimary.connect(distortion);
